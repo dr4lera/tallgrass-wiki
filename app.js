@@ -1,0 +1,193 @@
+'use strict';
+let D, page = 1;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nice = s => String(s ?? '').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+const num = n => Number(n).toLocaleString('en-US',{maximumFractionDigits:3});
+const link = (route,label) => `<a href="#/${route}">${esc(label)}</a>`;
+const byId = (a,id) => a.find(x=>String(x.id ?? x.slug)===String(id));
+const mon = id => byId(D.species,id);
+const monLink = id => link('pokemon/'+id,mon(id)?.name || nice(id));
+const moveLink = id => link('move/'+id,byId(D.moves,id)?.name || nice(id));
+const guideLink = id => link('guide/'+id,byId(D.guides,id)?.title || nice(id));
+const colors = {grass:'#6a9b53',fire:'#ca7348',water:'#4b8fba',electric:'#b79b37',ice:'#73a5a7',fighting:'#a56e56',poison:'#986ca2',ground:'#a78b58',flying:'#8d8eb7',psychic:'#bc7194',bug:'#889346',rock:'#9d9165',ghost:'#82759d',dragon:'#7977b4',dark:'#786e6c',steel:'#8a9c9b',fairy:'#c38aa9',normal:'#8e9688'};
+const types = ts => `<div class="types">${(ts||[]).map(t=>`<span class="type" style="--type:${colors[t]||'#738879'}">${esc(nice(t))}</span>`).join('')}</div>`;
+const table = (headers,rows) => `<div class="table-wrap" tabindex="0" aria-label="Scrollable table"><table class="data-table"><thead><tr>${headers.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c ?? '—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+const section = (title,body,id='') => `<section class="article-section" ${id?`id="${esc(id)}"`:''}><h2>${esc(title)}</h2>${body}</section>`;
+const intro = (label,title,summary,meta='') => `<div class="breadcrumb">${link('','Home')}<span>/</span>${esc(label)}</div><div class="page-intro"><div class="eyebrow">${esc(label)}</div><h1>${esc(title)}</h1><p>${esc(summary)}</p>${meta?`<div class="meta">${meta}</div>`:''}</div>`;
+const related = ids => `<div class="related">${ids.filter(id=>byId(D.guides,id)).map(guideLink).join('')}</div>`;
+const empty = text => `<div class="empty">${esc(text)}</div>`;
+const icon = cat => ({Events:'✧',Battles:'⚔',Breeding:'◒',Collection:'▦',Progression:'↗',Catching:'◎',Social:'♧','Getting started':'↟','Team building':'✦'}[cat]||'◇');
+const card = g => `<a class="guide-card" href="#/guide/${g.id}"><span class="card-icon">${icon(g.category)}</span><h3>${esc(g.title)}</h3><p>${esc(g.summary)}</p><div class="card-bottom"><span>${esc(g.category)} · ${g.sections.length} sections</span><span>↗</span></div></a>`;
+const refs = {
+  items:{title:'Items',desc:'Healing, evolution, Poké Balls, materials and other supplies.',data:()=>D.items,detail:'item'},
+  'held-items':{title:'Held items',desc:'Find battle items, their effects and shop prices.',data:()=>D.heldItems,detail:'held-item'},
+  cosmetics:{title:'Style collection',desc:'Every outfit, theme, frame, wallpaper, card background, ball effect and doll.',data:()=>D.cosmetics,detail:'cosmetic'},
+  achievements:{title:'Achievements & titles',desc:'All achievement tiers, requirements and rewards. Retired entries are marked.',data:()=>D.achievements,detail:'achievement'},
+  bounties:{title:'Bounty jobs',desc:'Job variants, ticket rewards and badge requirements. See the Bounty board guide for rotation rules.',data:()=>D.bounties,detail:'bounty'},
+  abilities:{title:'Ability descriptions',desc:'Pokédex descriptions of ordinary species abilities. For Tallgrass battle behavior and signature squad bonuses, see the ability guides.',data:()=>D.abilities,detail:'ability'},
+  'mega-stones':{title:'Mega Stones',desc:'Match each Mega Stone to its base Pokémon and transformation.',data:()=>Object.entries(D.megaStones).map(([id,v])=>({id,...v})),detail:'mega-stone'},
+  upgrades:{title:'Permanent upgrades',desc:'Every upgrade, level, effect and next-level cost.',data:()=>D.upgrades,detail:'upgrade'},
+  ranks:{title:'Trainer ranks',desc:'Registered-species requirements, perks and base rare-look odds.',data:()=>D.ranks.map((x,i)=>({id:i,...x})),detail:'rank'}
+};
+function nav(){
+ const entries=[['','⌂','Overview'],['guides','▤','All guides'],['guide/getting-started','↟','Getting started'],['pokemon','◉','Pokémon',D.species.length],['moves','⚡','Moves',D.moves.length],['items','▣','Items'],['islands','⌁','Islands & Gyms'],['odds','✧','Odds & combinations'],['!FEATURE GUIDES'],['guide/events-overview','✧','Events'],['guide/tower','♜','Tower'],['guide/raids','⚔','Raids'],['guide/day-care','◒','Day Care'],['guide/game-corner','◇','Game Corner'],['guide/night-market','☾','Night Market'],['guide/friends-trading','♧','Friends & trading'],['!COLLECTION'],['cosmetics','▦','Style collection'],['achievements','♜','Achievements & titles'],['upgrades','↗','Upgrades'],['held-items','◈','Held items'],['mega-stones','◆','Mega Stones'],['abilities','✦','Ability descriptions'],['ranks','≋','Ranks'],['bounties','▧','Bounty jobs']];
+ $('#navigation').innerHTML=entries.map(([r,i,t,n])=>r.startsWith('!')?`<div class="nav-section">${r.slice(1)}</div>`:`<a href="#/${r}" data-route="${r}"><span>${i}</span>${t}${n?`<i>${num(n)}</i>`:''}</a>`).join('');
+}
+function home(){
+ const featured=['getting-started','squad-building','day-care','tower','events-overview','game-corner'].map(id=>byId(D.guides,id));
+ return `<div class="hero"><div class="hero-copy"><div class="eyebrow">Tallgrass · Fan-Made Wiki</div><h1>Your next great hunt<br>starts here.</h1><p>From your first starter to the top of the Tower. Explore the Pokémon, build a stronger squad, and make every part of Tallgrass your own.</p><div class="button-row"><a class="btn" href="#/guide/getting-started">Start exploring <span>↗</span></a><a class="btn secondary" href="#/pokemon">Browse Pokémon</a></div></div><a class="hero-feature" href="#/guide/leader-skills"><div class="feature-top"><span class="feature-kicker">BUILD A BETTER SQUAD</span><span>Player guide</span></div><span class="orbit">✦</span><div><h2>One leader.<br>A whole new strategy.</h2><p>Explore all 40 signature Leader skills, and find the right one for your team.</p></div><div class="feature-bottom"><strong>Discover signature skills</strong><span>↗</span></div></a></div><div class="stats-strip">${[['pokemon',D.species.length,'Pokémon & forms'],['moves',D.moves.length,'Moves'],['guides',D.guides.length,'Feature guides'],['cosmetics',D.cosmetics.length,'Style collectibles']].map(([r,n,t])=>`<a href="#/${r}"><strong>${num(n)}</strong><span>${t}</span></a>`).join('')}</div><section class="home-section"><div class="section-head"><h2>Find your next adventure</h2><a class="text-link" href="#/guides">All guides ↗</a></div><div class="grid">${featured.map(card).join('')}</div></section><div class="note-band"><div><h3>Every rare look. Every combination.</h3><p>All Shiny Charm levels, starter odds, breeding bonuses and the combinations in between.</p></div><a class="btn secondary" href="#/odds">Explore the odds ↗</a></div><section class="home-section"><div class="section-head"><h2>A little deeper into Tallgrass</h2></div><div class="quick-grid">${['night-market','outbreaks','wonder-trade','stamp-book','bounties','lab','style','raid-eggs','pokeradar','mart','natures-and-ivs','achievements'].map(id=>`<a href="#/guide/${id}">${esc(byId(D.guides,id)?.title)}<span>↗</span></a>`).join('')}</div></section>`;
+}
+function guides(){
+ const cats=[...new Set(D.guides.map(g=>g.category))];
+ return intro('Field guide','A page for every part of your journey.','Browse progression, battle systems, collecting, events, breeding and social features.')+cats.map(c=>`<h2 class="category-title">${esc(c)}</h2><div class="grid">${D.guides.filter(g=>g.category===c).map(card).join('')}</div>`).join('');
+}
+function guide(id){
+ const g=byId(D.guides,id); if(!g)return missing();
+ const extras={mart:['items','held-items','mega-stones','upgrades'],style:['cosmetics'],achievements:['achievements'],bounties:['bounties'],upgrades:['upgrades'],rank:['ranks'],pokedex:['pokemon'], 'islands-gyms':['islands'],'held-items':['held-items'],'species-abilities':['abilities'], 'rare-look-odds':['odds'], 'starter-odds':['odds']};
+ let body=g.sections.map((s,i)=>section(s.heading,`${(s.paragraphs||[]).map(p=>`<p>${esc(p)}</p>`).join('')}${s.bullets?.length?`<ul>${s.bullets.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`:''}${s.table?table(s.table.headers,s.table.rows.map(r=>r.map(esc))):''}`,'section-'+i)).join('');
+ const catalogLinks=(extras[id]||[]).map(r=>`<a class="btn secondary" href="#/${r}">Browse ${esc(refs[r]?.title || nice(r))} ↗</a>`).join(' ');
+ if(catalogLinks)body=section('Explore the reference',`<div class="button-row">${catalogLinks}</div>`)+body;
+ return intro(g.category,g.title,g.summary,'<span class="pill">Version 0.53.1</span>')+`<div class="article-layout"><div>${body}${related(g.related)}</div><aside class="toc"><div>ON THIS PAGE</div>${g.sections.map((s,i)=>`<a href="#/guide/${id}" data-scroll="section-${i}">${esc(s.heading)}</a>`).join('')}</aside></div>`;
+}
+function field(label,value){return `<div><dt>${esc(label)}</dt><dd>${value ?? '—'}</dd></div>`;}
+function pokemonDetail(id){
+ const p=mon(id); if(!p)return missing();
+ const base=p.slug.replace(/_mega(?:_[xyz])?$|_gmax$/g,''); const leader=D.leaders.find(l=>l.pokemon===base);
+ const stats=Object.entries(p.stats).map(([k,v])=>`<div class="stat-row"><span>${esc(k.toUpperCase())}</span><b>${v}</b><div class="stat-track"><i style="width:${Math.min(100,v/255*100)}%"></i></div></div>`).join('');
+ let info=`<dl class="info-list">${field('Role',esc(nice(p.role)))}${field('Category',esc(p.category))}${field('Growth',esc(nice(p.growth)))}${field('Experience yield',p.experienceYield)}${field('Weight',num(p.weightKg)+' kg')}${field('Female chance',p.femalePercent==null?'Genderless':num(p.femalePercent)+'%')}${field('Catch-rate value',p.catchRate)}${field('Entry',esc(nice(p.entryKind)))}</dl><p class="small-note">Catch-rate value is a base value, not a direct catch percentage. Ball choice, HP, status and bonuses also matter.</p>`;
+ let body=`<div class="details-grid">${section('Base stats',stats)}${section('Pokémon details',info)}</div>`;
+ body+=section('Ordinary abilities',`<div class="related">${p.abilities.map(id=>link('ability/'+id,byId(D.abilities,id)?.name||nice(id))).join('')}</div><p>These are Pokédex ability descriptions. See ${guideLink('species-abilities')} for Tallgrass battle effects and the separate Leader system.</p>`);
+ if(leader)body+=section('Signature squad Leader',`<h3>${esc(leader.ability)}</h3><p>${esc(leader.description)}</p>${guideLink('leader-skills')}`);
+ const evos=p.evolutions||[];
+ body+=section('Evolution & related forms',`${p.evolvesFrom?`<p>Evolves from ${monLink(p.evolvesFrom)}.</p>`:''}${evos.length?`<div class="evo">${evos.map(e=>`<a href="#/pokemon/${e.to}"><strong>${esc(mon(e.to)?.name||nice(e.to))}</strong><small>${esc(e.description)}</small></a>`).join('')}</div>`:'<p>No further main-game evolution is listed for this entry.</p>'}${p.relatedForms?.length?`<div class="related">${p.relatedForms.map(f=>`<a href="#/pokemon/${f.slug}">${esc(mon(f.slug)?.name||nice(f.slug))}<small> · ${esc(f.description)}</small></a>`).join('')}</div>`:''}`);
+ body+=section('Wild encounter locations',p.encounters.length?table(['Island','Rarity'],p.encounters.map(e=>[link('island/'+e.region,byId(D.regions,e.region)?.name||nice(e.region)),esc(nice(e.rarity))])):'<p>No ordinary wild encounter is listed. Check evolution, transformation, costume and special-feature guides for other ways to obtain a form.</p>');
+ body+=section('Level-up moves',table(['Level','Move','Type','Category','Power'],p.learnset.map(l=>{const m=byId(D.moves,l.moveId);return[l.level,moveLink(l.moveId),esc(nice(m?.type)),esc(m?.category),m?.power||'—'];})));
+ body+=section('Tutor moves',p.tutorMoves.length?`<div class="related">${p.tutorMoves.map(moveLink).join('')}</div>`:'<p>No Tutor moves listed.</p>');
+ return intro('Pokémon',p.name,`#${String(p.number).padStart(4,'0')} · ${p.category} Pokémon`,types(p.types)+(p.image?`<img class="pokemon-portrait" src="${p.image}" alt="${esc(p.name)}">`:''))+body+related(['squad-building','combat-roles','natures-and-ivs','catching','power-ups']);
+}
+function moveEffect(e){
+ const labels={flinch:'Flinch',confuse:'Confusion',psn:'Poison',wrap:'Trapping',brn:'Burn',frz:'Freeze',par:'Paralysis',recharge:'Recharge',tox:'Bad poison',slp:'Sleep',cure:'Status cure',tri:'Random status'};
+ const stats={atk:'Attack',def:'Defense',spa:'Sp. Atk',spd:'Sp. Def',spe:'Speed',acc:'Accuracy',eva:'Evasion'};
+ const effect=e.k==='stat'?Object.entries(e.st||{}).map(([s,n])=>(stats[s]||nice(s))+': '+(n>0?'+':'')+n+' stage'+(Math.abs(n)===1?'':'s')).join(', '):labels[e.k]||nice(e.k);
+ return (e.ch!=null?e.ch+'% chance · ':'')+effect+(e.self?' · User':' · Target');
+}
+function moveDetail(id){
+ const m=byId(D.moves,id); if(!m)return missing();
+ const learners=D.species.filter(p=>p.learnset.some(l=>l.moveId===m.id));const tutors=D.species.filter(p=>p.tutorMoves.includes(m.id));
+ return intro('Moves',m.name,m.description,types([m.type]))+section('Move details',`<dl class="info-list">${field('Category',esc(m.category))}${field('Power',m.power||'—')}${field('Accuracy',m.accuracy?m.accuracy+'%':'—')}${field('PP',m.pp)}${field('Priority',m.priority)}${field('Contact',m.contact?'Yes':'No')}${field('Drain',m.drainPercent?m.drainPercent+'%':'—')}${field('Critical bonus',m.criticalBonus||'—')}</dl>${m.effects?.length?`<p>${esc(m.effects.map(moveEffect).join('; '))}</p>`:''}`)+section(`Level-up learners (${learners.length})`,`<div class="related">${learners.map(p=>link('pokemon/'+p.slug,p.name)).join('')}</div>`)+section(`Tutor learners (${tutors.length})`,`<div class="related">${tutors.map(p=>link('pokemon/'+p.slug,p.name)).join('')}</div>`)+related(['damage-and-types','mart']);
+}
+function catalog(kind){
+ let name,description,data;
+ if(kind==='pokemon'){name='Pokémon';description='Explore every Pokémon, alternate form and costume. Filter by type, role, island or entry kind.';data=D.species;}
+ else if(kind==='moves'){name='Moves';description='Power, accuracy, categories, effects and the Pokémon that learn each move.';data=D.moves;}
+ else{const r=refs[kind];if(!r)return missing();name=r.title;description=r.desc;data=r.data();}
+ const groups=[...new Set(data.map(x=>x.kind||x.category||x.source).filter(x=>typeof x==='string'))].sort();
+ return intro('Reference',name,description)+`<div class="filters"><input id="filter-search" type="search" placeholder="Search ${esc(name.toLowerCase())}…" aria-label="Search ${esc(name)}">${kind==='pokemon'||kind==='moves'?`<select id="filter-type" aria-label="Type"><option value="">All types</option>${Object.keys(colors).map(t=>`<option value="${t}">${nice(t)}</option>`).join('')}</select>`:''}${kind==='pokemon'?`<select id="filter-role" aria-label="Battle role"><option value="">All roles</option>${['dps','break','support'].map(r=>`<option value="${r}">${nice(r)}</option>`).join('')}</select><select id="filter-island" aria-label="Island"><option value="">All islands</option>${D.regions.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}</select><select id="filter-kind" aria-label="Entry kind"><option value="">All entries</option><option value="pokemon">Pokémon</option><option value="costume">Costumes</option><option value="transformation">Transformations</option></select>`:groups.length>1?`<select id="filter-group" aria-label="Category"><option value="">All categories</option>${groups.map(c=>`<option value="${esc(c)}">${esc(nice(c))}</option>`).join('')}</select>`:''}<select id="filter-sort" aria-label="Sort"><option value="default">${kind==='pokemon'?'Pokédex order':'Default order'}</option><option value="name">Name A–Z</option>${kind==='pokemon'?'<option value="stats">Base-stat total</option>':''}</select></div><div id="catalog-results"></div>`;
+}
+function renderCatalog(kind){
+ let data=kind==='pokemon'?D.species:kind==='moves'?D.moves:refs[kind].data();
+ let q=$('#filter-search').value.toLowerCase().trim();const val=id=>$(id)?.value||'';
+ data=data.filter(x=>(!q||`${x.name} ${x.number||''} ${x.description||x.desc||''}`.toLowerCase().includes(q))&&(!val('#filter-type')||(x.types||[x.type]).includes(val('#filter-type')))&&(!val('#filter-role')||x.role===val('#filter-role'))&&(!val('#filter-island')||x.encounters.some(e=>e.region===val('#filter-island')))&&(!val('#filter-kind')||x.entryKind===val('#filter-kind'))&&(!val('#filter-group')||(x.kind||x.category||x.source)===val('#filter-group')));
+ const sort=val('#filter-sort');if(sort==='name')data=[...data].sort((a,b)=>a.name.localeCompare(b.name));if(sort==='stats')data=[...data].sort((a,b)=>Object.values(b.stats).reduce((a,b)=>a+b,0)-Object.values(a.stats).reduce((a,b)=>a+b,0));
+ const count=data.length,limit=24,pages=Math.max(1,Math.ceil(count/limit));page=Math.min(page,pages);
+ const r=refs[kind];let cards=data.slice((page-1)*limit,page*limit).map(x=>{
+  let route=kind==='pokemon'?'pokemon/'+x.slug:kind==='moves'?'move/'+x.id:r.detail+'/'+encodeURIComponent(x.id);
+  return `<a class="entry-card" href="#/${route}"><div class="entry-head"><span class="dex-medallion">${kind==='pokemon'?'#'+String(x.number).padStart(4,'0'):kind==='moves'?'↗':icon(x.category)}</span><span class="pill">${esc(kind==='pokemon'?nice(x.role):x.rarity||x.kind||x.tier||x.category||'Reference')}</span></div>${x.image?`<img class="entry-image" src="${x.image}" alt="" loading="lazy">`:''}<h3>${esc(x.name)}</h3>${kind==='pokemon'?types(x.types):kind==='moves'?types([x.type]):''}<p>${esc(kind==='pokemon'?x.category+' · '+nice(x.entryKind):x.description||x.desc||x.perk||x.source||'View complete details')}</p><div class="tiny-stats">${kind==='pokemon'?`HP ${x.stats.hp} <span>ATK ${x.stats.atk}</span> <span>BST ${Object.values(x.stats).reduce((a,b)=>a+b,0)}</span>`:kind==='moves'?`${esc(x.category)} · Power ${x.power||'—'} · ${x.accuracy||'—'}%`:x.price!=null?`${num(x.price)} ${esc(x.currency||'Money')}`:x.retired?'Retired':x.maxLevel!=null?x.maxLevel+' upgrade levels':'View entry ↗'}</div></a>`;
+ }).join('');
+ $('#catalog-results').innerHTML=`<div class="results-line">${num(count)} entries <span>Page ${page} of ${pages}</span></div>${cards?`<div class="catalog-grid">${cards}</div>`:empty('No matches. Try another search or filter.')}<div class="pagination"><button data-page="${page-1}" ${page===1?'disabled':''}>← Previous</button><span>${page} / ${pages}</span><button data-page="${page+1}" ${page===pages?'disabled':''}>Next →</button></div>`;
+ $('#catalog-results').querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>{page=+b.dataset.page;renderCatalog(kind);$('#catalog-results').scrollIntoView({block:'start'});});
+}
+function referenceDetail(kind,id){
+ const ref=Object.values(refs).find(r=>r.detail===kind);const x=ref&&byId(ref.data(),id);if(!x)return missing();
+ let body='';const fields=[];const add=(k,v)=>{if(v!==undefined&&v!==null&&v!=='')fields.push(field(k,esc(typeof v==='boolean'?(v?'Yes':'No'):v)));};
+ for(const [key,label]of Object.entries({kind:'Category',rarity:'Rarity',source:'Available from',price:'Price',currency:'Currency',dailyDealPrice:'Daily deal price',unlock:'Unlock requirement',prizeCounterCoins:'Prize Counter Coins',prizeCounterPrice:'Prize Counter Coins',duplicateCoins:'Duplicate refund (Coins)',requiredBadges:'Badge requirement',target:'Target',tickets:'Ticket reward',tier:'Tier',threshold:'Requirement',money:'Money reward',perk:'Rank perk',shiny:'Base Shiny denominator',perfect:'Base Perfect denominator',retired:'Retired'}))add(label,x[key]);
+ if(kind==='rank')add('Registered species',x.need);if(kind==='item'&&x.badges!=null)add('Badge requirement',x.badges);if(kind==='item'&&x.need)add('Rank unlock',D.ranks.find(r=>r.ball===x.need)?.name||nice(x.need));if(fields.length)body+=section('At a glance',`<dl class="info-list">${fields.join('')}</dl>`);
+ if(kind==='ability'){body+=section('Pokédex description',`<p>${esc(x.description)}</p><p>These descriptions identify ordinary species abilities. For effects used by Tallgrass battles, read ${guideLink('species-abilities')}. Squad Leader skills are a separate system.</p>`)+section('Pokémon with this ability',`<div class="related">${D.species.filter(p=>p.abilities.includes(x.id)).map(p=>monLink(p.slug)).join('')}</div>`);}
+ if(kind==='upgrade')body+=section('Every level',table(['Level','Effect','Next upgrade cost'],x.levels.map(l=>[l.level,esc(l.description),l.nextCost==null?'Maximum level':'$'+num(l.nextCost)])));
+ if(kind==='mega-stone')body+=section('Transformation',`<p>${monLink(x.base)} → ${monLink(x.form)}</p>`);
+ if(kind==='achievement')body+=section('Rewards',`<p>Title: ${esc(x.name)}</p>${x.rewards?.length?table(['Item','Quantity'],x.rewards.map(r=>[link('item/'+r.item,byId(D.items,r.item)?.name||nice(r.item)),r.quantity])):'<p>No item rewards listed.</p>'}`);
+ const excluded=new Set(['image','art','id','name','description','desc','kind','rarity','source','price','currency','dailyDealPrice','unlock','prizeCounterCoins','prizeCounterPrice','duplicateCoins','requiredBadges','target','tickets','tier','threshold','money','need','perk','shiny','perfect','retired','levels','maxLevel','baseCost','costGrowth','base','form','rewards','category','family','parameter','weights','ball','badges']);
+ const rest=Object.entries(x).filter(([k,v])=>!excluded.has(k)&&v!=null&&typeof v!=='object');if(rest.length)body+=section('Additional details',table(['Property','Value'],rest.map(([k,v])=>[esc(nice(k)),esc(v)])));
+ const relatedIds=kind==='cosmetic'?['style','capsules','prize-counter','stamp-book']:kind==='bounty'?['bounties']:kind==='achievement'?['achievements']:kind==='upgrade'?['upgrades']:kind==='rank'?['rank','rare-look-odds']:kind==='held-item'?['held-items','squad-building']:['mart','power-ups'];
+ return intro(ref.title,x.name,x.description||x.desc||x.perk||'Complete reference entry.',x.image?`<img class="item-portrait" src="${x.image}" alt="${esc(x.name)}">`:'')+body+related(relatedIds);
+}
+function islands(id){
+ if(!id)return intro('World','Islands & Gyms','Every island’s encounter pool and Gym team, with links to each Pokémon.')+`<div class="grid">${D.regions.map(r=>`<a class="guide-card" href="#/island/${r.id}"><span class="card-icon">${r.order}</span><h3>${esc(r.name)}</h3><p>${esc(r.description)}</p><div class="card-bottom"><span>${esc(r.gym.title)}</span><span>↗</span></div></a>`).join('')}</div>`+related(['islands-gyms','boss-mechanics','legendary-hunting']);
+ const r=byId(D.regions,id);if(!r)return missing();
+ return intro('Islands',r.name,r.description)+section(r.gym.title,`<p>${esc(r.gym.leader)} · ${esc(nice(r.gym.type))} · ${esc(r.gym.badge)}</p><div class="related">${r.gym.team.map(monLink).join('')}</div>`)+Object.entries(r.encounters).map(([rarity,pool])=>section(nice(rarity)+' encounters',`<p>${pool.length} entries in this pool. Encounter rarity is separate from rare-look odds.</p><div class="related">${pool.map(monLink).join('')}</div>`)).join('')+related(['islands-gyms','island-checklists','legendary-hunting','boss-mechanics']);
+}
+function missing(){return intro('Not found','This trail ends here.','Try the wiki search, or browse all guides.')+`<a class="btn" href="#/guides">Browse guides ↗</a>`;}
+function probability(p){
+ if(!p)return '0% · Impossible';if(p>=1)return '100% · Guaranteed';
+ const pct=p*100;return `${pct<0.00001?pct.toExponential(4):Number(pct.toPrecision(7)).toLocaleString('en-US',{maximumFractionDigits:10})}% <small>· ≈ 1 in ${num(1/p)}</small>`;
+}
+function oddsPage(){
+ if(!D.odds)return empty('The odds reference is being prepared.');
+ const sources=[['wild','Wild encounter'],['prize','Prize costume encounter'],['starter','Ordinary starter'],['founder','Founder reward'],['daycare','Day Care egg'],['costume','Costume Egg'],['gift','Gift egg'],['raid','Raid Egg'],['tower','Tower recruit']];
+ return intro('Odds reference','Every rare look, together.','Compare every Shiny Charm level, keep starter odds separate, and check exact combinations—including Shiny Umbral Prismana.')+`<section class="article-section"><h2>Choose an encounter or egg</h2><div class="filters"><label>Source<select id="odds-source">${sources.map(([v,n])=>`<option value="${v}">${n}</option>`).join('')}</select></label><label id="rank-control">Trainer rank<select id="odds-rank">${D.odds.ranks.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}</select></label><label id="charm-control">Shiny Charm<select id="odds-charm">${D.odds.charmLevels.map(l=>`<option value="${l.level}">Level ${l.level} · ×${l.multiplier}</option>`).join('')}</select></label><label id="wild-control">Encounter bonus<select id="odds-wild"><option value="normal">Ordinary</option><option value="outbreak">Outbreak target · ×3</option><option value="radar">Radar target</option></select></label><label id="chain-control" hidden>Radar chain<input id="odds-chain" type="number" min="0" max="200" value="0"></label><label id="luck-control" hidden>Tower Luck<select id="odds-luck">${Array.from({length:15},(_,i)=>`<option>${i}</option>`).join('')}</select></label><label id="den-control" hidden>Room<select id="odds-den"><option value="false">Regular</option><option value="true">Den</option></select></label></div><div id="parent-controls" hidden><h3>Breeding parents</h3><div class="filters">${['shiny','umbral','prismana','perfect','alpha'].map(t=>`<label>${nice(t)} parents<select id="parents-${t}"><option value="0">0</option><option value="1">1</option><option value="2">2</option></select></label>`).join('')}<label>Origin islands<select id="parents-islands"><option value="false">Same island</option><option value="true">Different islands</option></select></label><label>Destiny Knot<select id="parents-knot"><option value="false">Not held</option><option value="true">Held</option></select></label></div></div><div id="odds-source-note" class="note-band"></div><h3>Combination rules</h3><div class="filters"><label>Look matching<select id="odds-match"><option value="exact">Exactly these looks</option><option value="inclusive">These looks; extras allowed</option></select></label>${['perfect','alpha'].map(t=>`<label>${nice(t)}<select id="require-${t}"><option value="any">Either</option><option value="yes">Required</option><option value="no">Excluded</option></select></label>`).join('')}</div><p class="small-note">Perfect means the dedicated Perfect bonus, not the separate possibility of a naturally perfect IV spread. Alpha and Perfect filters do not change the three look rolls.</p></section><div id="odds-results"></div>${related(['starter-odds','rare-look-odds','rare-variants','day-care-odds','tower-luck','raid-eggs','natures-and-ivs'])}`;
+}
+function oddsState(level){
+ const o=D.odds,s=$('#odds-source').value,rank=+$('#odds-rank').value,c=level??+$('#odds-charm').value;
+ let row,exclusive=false;
+ if(s==='starter')row=o.ordinaryStarter.odds;
+ if(s==='founder')row=o.founderStarter;
+ if(s==='raid')row=o.raidEgg.odds;
+ if(s==='tower'){row=o.towerByLuck.find(r=>r.luck===+$('#odds-luck').value&&r.den===($('#odds-den').value==='true'));exclusive=true;}
+ const key={wild:'wildByRankCharm',prize:'wildByRankCharm',daycare:'dayCareBaseByRankCharm',costume:'costumeEggByRankCharm',gift:'giftEggByRankCharm'}[s];
+ if(key)row=o[key].find(r=>r.rankId===rank&&r.charmLevel===c);
+ const p=Object.fromEntries(Object.entries(row.marginal).map(([t,v])=>[t,v.probability]));
+ if(s==='wild'){
+  const bonus=$('#odds-wild').value;const mult=bonus==='outbreak'?3:bonus==='radar'?1+Math.max(0,Math.min(200,+$('#odds-chain').value||0))/100:1;
+  ['shiny','umbral','prismana'].forEach(t=>p[t]*=mult);
+ }
+ if(s==='daycare'){
+  const r=o.ranks[rank],base=(1+.12*c)/r.baseShinyDenominator*1.5*($('#parents-islands').value==='true'?2:1);
+  p.shiny=base+(+$('#parents-shiny').value)/128;p.umbral=base/3+(+$('#parents-umbral').value)/384;p.prismana=base/8+(+$('#parents-prismana').value)/1024;
+  p.perfect=Math.min(1,(1/r.basePerfectDenominator+(+$('#parents-perfect').value)/48)*($('#parents-knot').value==='true'?3:1));p.alpha=(+$('#parents-alpha').value)/64;
+ }
+ return {p,exclusive,source:s};
+}
+function lookChance(def,st){
+ const inclusive=$('#odds-match').value==='inclusive';let v;
+ if(st.exclusive){v=def.requires.length>1?0:def.requires.length===1?st.p[def.requires[0]]:Math.max(0,1-st.p.shiny-st.p.umbral-st.p.prismana);if(inclusive&&!def.requires.length)v=1;}
+ else{v=def.requires.reduce((a,t)=>a*st.p[t],1);if(!inclusive)def.excludes.forEach(t=>v*=1-st.p[t]);}
+ for(const t of ['perfect','alpha']){const req=$('#require-'+t).value;if(req==='yes')v*=st.p[t];if(req==='no')v*=1-st.p[t];}
+ return v;
+}
+function updateOdds(){
+ const s=$('#odds-source').value;
+ $('#rank-control').hidden=!['wild','prize','daycare','costume','gift'].includes(s);$('#charm-control').hidden=!['wild','prize','daycare','costume','gift'].includes(s);$('#wild-control').hidden=s!=='wild';$('#chain-control').hidden=s!=='wild'||$('#odds-wild').value!=='radar';$('#luck-control').hidden=s!=='tower';$('#den-control').hidden=s!=='tower';$('#parent-controls').hidden=s!=='daycare';
+ const notes={prize:'Prize costume encounters use ordinary rank and Charm rare-look odds and the rank’s Perfect chance. They do not receive the Costume Egg ×3 bonus. No Alpha roll.',wild:'Rank and Shiny Charm affect all three rare looks. Outbreak and Radar bonuses are alternatives: only use the bonus for the actual qualifying target encounter. Perfect is unaffected by these look bonuses. Ordinary wild encounters have no Alpha roll.',starter:'Ordinary new-game starters are level 7. Shiny 1/16, Umbral 1/48 and Prismana 1/128 are independent. Rank and Shiny Charm do not apply. No designated Perfect or Alpha roll.',founder:'A separate, once-only Founder reward: guaranteed Prismana with perfect IVs, with no Shiny, Umbral or Alpha look roll. Ordinary starter odds do not apply.',daycare:'The egg base receives a ×1.5 breeding bonus; different origin islands double that base. Matching parental traits add their own bonuses. Destiny Knot triples the dedicated Perfect chance only.',costume:'Costume Eggs receive ×3 wild-base rare-look odds and a 1/100 designated Perfect roll. Rank and Shiny Charm apply. Costume selection is separate.',gift:'Gift eggs receive ×1.5 wild-base rare-look odds. Rank and Shiny Charm apply. They have no designated Perfect or Alpha roll.',raid:'Raid Eggs use fixed odds: Shiny 1/40, Umbral 1/120, Prismana 1/300 and Perfect 1/20. Rank, Charm and parents do not apply.',tower:'Tower uses run Luck and room type. Shiny, Umbral and Prismana are mutually exclusive in this source, so combined looks have 0% chance. Main-game rank and Shiny Charm do not apply.'};
+ $('#odds-source-note').textContent=notes[s];const st=oddsState();
+ const defs=D.odds.lookDefinitions;const match=$('#odds-match').value==='exact'?'Exact look':'Required looks (extras allowed)';
+ const tableRows=defs.map(d=>[esc(d.id==='normal'&&$('#odds-match').value==='inclusive'?'Any look':d.label),probability(lookChance(d,st))]);
+ let body=section('Individual trait odds',table(['Trait','Chance per qualifying roll'],Object.entries(st.p).map(([t,p])=>[esc(nice(t)),probability(p)])))+section('All look combinations',`<p>${$('#odds-match').value==='exact'?'Each row excludes the other Shiny, Umbral and Prismana traits. These eight rows cover all possible looks.':'Rows can overlap: Shiny + Prismana includes the triple look as well. “Any look” includes normal.'} Perfect and Alpha follow your filters above.</p>`+table([match,'Chance per qualifying roll'],tableRows));
+ const charms=['wild','prize','daycare','costume','gift','starter'].includes(s);
+ if(charms)body+=section('Every Shiny Charm level',`<p>${s==='starter'?'Starter chances stay the same at every Charm level.':'Uses your selected rank, encounter or parent bonuses, and combination filters. Scroll the table sideways for all eight looks.'}</p>`+table(['Charm','Look multiplier',...defs.map(d=>d.id==='normal'&&$('#odds-match').value==='inclusive'?'Any look':d.label)],D.odds.charmLevels.map(c=>[c.level,s==='starter'?'Not applied':'×'+c.multiplier,...defs.map(d=>probability(lookChance(d,oddsState(c.level))))])));
+ if(s==='tower')body+=section('Every Tower Luck level',table(['Luck','Regular Shiny','Regular Umbral','Regular Prismana','Den Shiny','Den Umbral','Den Prismana'],Array.from({length:15},(_,luck)=>[luck,...[false,true].flatMap(den=>{const r=D.odds.towerByLuck.find(r=>r.luck===luck&&r.den===den);return['shiny','umbral','prismana'].map(t=>probability(r.marginal[t].probability));})])));
+ body+=section('How to read these odds','<p>These are chances per eligible encounter or egg. “1 in” values are rounded reciprocals, not a guaranteed number of attempts. Finding a look and successfully catching it are separate events. Source-specific rewards can have their own rules; use the matching guide.</p>');
+ $('#odds-results').innerHTML=body;
+}
+function route(){
+ if(!D)return;if($('#search-dialog').open)$('#search-dialog').close();const [kind='',raw='']=location.hash.replace(/^#\/?/,'').split('/');const id=decodeURIComponent(raw);page=1;
+ let html=kind===''?home():kind==='guides'?guides():kind==='guide'?guide(id):kind==='pokemon'?(id?pokemonDetail(id):catalog(kind)):kind==='moves'?catalog(kind):kind==='move'?moveDetail(id):kind==='islands'?islands():kind==='island'?islands(id):kind==='odds'?oddsPage():refs[kind]?catalog(kind):referenceDetail(kind,id);
+ $('#content').innerHTML=html;document.body.classList.remove('menu-open');window.scrollTo(0,0);
+ const route=location.hash.replace(/^#\/?/,'');$('#navigation').querySelectorAll('a').forEach(a=>a.classList.toggle('active',a.dataset.route===route));
+ document.title=($('#content h1')?.textContent||'Tallgrass')+' · Tallgrass Fan-Made Wiki';
+ if(kind==='pokemon'&&!id||kind==='moves'||refs[kind]){renderCatalog(kind);$('#content').querySelectorAll('.filters input,.filters select').forEach(e=>e.addEventListener(e.tagName==='INPUT'?'input':'change',()=>{page=1;renderCatalog(kind);}));}
+ if(kind==='odds'&&D.odds){updateOdds();$('#content').querySelectorAll('select,input').forEach(e=>e.addEventListener(e.tagName==='INPUT'?'input':'change',updateOdds));}
+ $('#content').querySelectorAll('[data-scroll]').forEach(a=>a.onclick=e=>{e.preventDefault();document.getElementById(a.dataset.scroll).scrollIntoView({block:'start'});});
+}
+let searchIndex=[];
+function indexSearch(){
+ searchIndex=[...D.guides.map(g=>({name:g.title,description:g.summary,kind:'Guide',route:'guide/'+g.id})),...D.species.map(p=>({name:p.name,description:'#'+p.number+' · '+p.types.map(nice).join(' / ')+' · '+nice(p.role),kind:'Pokémon',route:'pokemon/'+p.slug})),...D.moves.map(m=>({name:m.name,description:m.description,kind:'Move',route:'move/'+m.id})),...Object.values(refs).flatMap(r=>r.data().map(x=>({name:x.name,description:x.description||x.desc||x.perk||r.title,kind:r.title,route:r.detail+'/'+encodeURIComponent(x.id)}))),...D.regions.map(r=>({name:r.name,description:r.description,kind:'Island',route:'island/'+r.id})),{name:'All odds & combinations',description:'Starter, Shiny Charm, Shiny Umbral Prismana, breeding and every variant.',kind:'Odds',route:'odds'}];
+}
+function search(){
+ const q=$('#search-input').value.trim().toLowerCase();const terms=q.split(/\s+/);let rows=q?searchIndex.filter(x=>terms.every(t=>(x.name+' '+x.description).toLowerCase().includes(t))).sort((a,b)=>(a.name.toLowerCase().startsWith(q)?-1:0)-(b.name.toLowerCase().startsWith(q)?-1:0)).slice(0,35):searchIndex.filter(x=>['getting-started','tower','game-corner','night-market'].some(id=>x.route==='guide/'+id)||x.route==='odds');
+ $('#search-results').innerHTML=rows.length?rows.map(x=>`<a class="search-result" href="#/${x.route}"><span>${esc(x.kind)}</span><strong>${esc(x.name)}</strong><small>${esc(x.description)}</small></a>`).join(''):empty('No matches. Try a Pokémon name, item or feature.');
+ $('#search-results').querySelectorAll('a').forEach(a=>a.onclick=()=>$('#search-dialog').close());
+}
+function openSearch(){$('#search-dialog').showModal();search();$('#search-input').focus();}
+$('#menu').onclick=()=>document.body.classList.toggle('menu-open');$('#shade').onclick=()=>document.body.classList.remove('menu-open');$('#theme').onclick=()=>{const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;$('#theme').setAttribute('aria-pressed',String(t==='dark'));try{localStorage.setItem('tg-wiki-theme',t);}catch{}};$('#search-open').onclick=openSearch;$('#search-close').onclick=()=>$('#search-dialog').close();$('#search-input').oninput=search;$('#search-input').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const a=$('#search-results a');if(a){a.click();$('#search-dialog').close();}}};document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openSearch();}});window.addEventListener('hashchange',route);
+fetch('data.json').then(r=>{if(!r.ok)throw Error('Could not load reference');return r.json();}).then(d=>{D=d;$('#theme').setAttribute('aria-pressed',String(document.documentElement.dataset.theme==='dark'));nav();indexSearch();route();}).catch(()=>{$('#content').innerHTML=empty('The reference could not load. Please refresh to try again.');});
