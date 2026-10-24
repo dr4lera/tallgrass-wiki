@@ -1,4 +1,5 @@
 'use strict';
+let breedingCurrentFacts=null;
 function breedingOptions(){
  const allowed=new Set(D.breedingRules.species.map(p=>p.slug));
  return D.species.filter(p=>allowed.has(p.slug));
@@ -36,8 +37,8 @@ function pairFacts(a,b){
 }
 function syncBreeding(){
  const parents=[readBreedingParent(0),readBreedingParent(1)];
- parents.forEach((p,i)=>{$('#breed-preview-'+i).innerHTML=p?`${(mon(p.costume)?.image||p.p.image)?`<img src="${mon(p.costume)?.image||p.p.image}" class="pokemon-portrait" alt="${esc(p.p.name)}">`:''}<div><h3>${esc(mon(p.costume)?.name||p.p.name)}</h3>${types(p.p.types)}</div>`:'<p>Choose a Pokémon from the list, or enter its full name.</p>';});
- const facts=parents.every(Boolean)?pairFacts(...parents):{ok:false,reason:'Choose a valid Pokémon for each parent to calculate an egg.'};
+ parents.forEach((p,i)=>{$('#breed-preview-'+i).innerHTML=p?`${babySprite({slug:p.p.slug,costume:p.costume},['shiny','umbral','prismana'].filter(t=>p[t]))}<div><h3>${esc(mon(p.costume)?.name||p.p.name)}</h3>${types(p.p.types)}</div>`:'<p>Choose a Pokémon from the list, or enter its full name.</p>';});
+ const facts=parents.every(Boolean)?pairFacts(...parents):{ok:false,reason:'Choose a valid Pokémon for each parent to calculate an egg.'};breedingCurrentFacts=facts;
  $('#breeding-pair').innerHTML=facts.ok?`<section class="article-section"><h2>Compatible pair</h2><p>${esc(facts.reason)} One egg per ${facts.encounters} wild encounters, while the basket has room. Babies hatch at level 5.</p><div class="catalog-grid baby-grid">${facts.babies.map(b=>`<div class="entry-card"><h3>${esc(mon(b.slug)?.name||nice(b.slug))}</h3><span class="pill">${num(b.share*100)}% of eggs</span><p>${b.costume?esc(mon(b.costume).name)+' costume inherited.':'No inherited costume for this family.'}</p><p class="small-note">Base egg warmth: ${D.breedingRules.species.find(p=>p.slug===b.slug)?.hatchEncounters||'—'} wild encounters. About ${Math.ceil((D.breedingRules.species.find(p=>p.slug===b.slug)?.hatchEncounters||0)/+$('#breed-warmer').value)} with this warmer, before warmth already gained.</p>${monLink(b.slug)}</div>`).join('')}</div><p class="small-note">${facts.eventActive?'Halloween costume inheritance ends November 1, 2026 at 00:00 UTC. Only the three matching Halloween costumes pass down in this event.':'Halloween costume inheritance has ended for this version; newly created eggs have no inherited costume.'} Costume odds below are across all eggs from this pair.</p></section>`:`<div class="note-band"><div><h3>This pair cannot produce an egg</h3><p>${esc(facts.reason)}</p></div></div>`;
  $('#odds-source').value='daycare';
  if(facts.ok){
@@ -46,7 +47,7 @@ function syncBreeding(){
   $('#parents-knot').value=String(parents.some(p=>p.item==='destiny_knot'));
   $('#parents-costume').value=String(facts.costume);
  }
- updateOdds();
+ $('#breeding-pair').insertAdjacentHTML('beforeend','<div id="breeding-results"></div>');updateOdds();
  $('#odds-results').hidden=!facts.ok;$('#selected-odds').hidden=!facts.ok;
  $('#all-six').disabled=!facts.ok;
  const regionText=facts.ok?parents[0].island!==parents[1].island?'Different catch islands: ×2 to the base look chances.':'Same catch island: no extra island multiplier.':'';
@@ -73,4 +74,32 @@ function zeroExplanation(trait,st){
  if(st.source==='founder')return 'The Founder reward fixes its traits; it does not use ordinary starter rolls.';
  if(trait==='perfect')return 'No dedicated Perfect bonus roll for this source. This does not estimate naturally perfect IV spreads.';
  return 'Not rolled by this source.';
+}
+function babySprite(b,looks=[]){
+ const p=mon(b.costume)||mon(b.slug),shiny=looks.includes('shiny');
+ const src=shiny?(p.shinyImage||p.image):p.image;
+ const rare=looks.includes('umbral')||looks.includes('prismana');
+ return src?`<div class="baby-sprite ${shiny?'baby-shiny':''} ${looks.includes('umbral')?'baby-umbral':''} ${looks.includes('prismana')?'baby-prismana':''}" style="--baby-mask:url('${src}')"><img src="${src}" alt="${esc([...looks.map(nice),p.name].join(' '))}" loading="lazy">${rare?'<span class="baby-facets" aria-hidden="true"></span><span class="baby-sheen" aria-hidden="true"></span>':''}${looks.includes('prismana')?Array.from({length:4},(_,i)=>`<span class="baby-shard" style="--shard:${i}" aria-hidden="true"></span>`).join(''):''}${shiny?Array.from({length:3},(_,i)=>`<span class="baby-sparkle" style="--spark:${i}" aria-hidden="true">✦</span>`).join(''):''}</div>`:'<div class="baby-sprite">◇</div>';
+}
+function babyLookChance(b,def,st){
+ let p=def.requires.reduce((n,t)=>n*st.p[t],1);
+ def.excludes.forEach(t=>p*=1-st.p[t]);
+ for(const t of ['perfect','alpha']){const req=$('#require-'+t).value;if(req==='yes')p*=st.p[t];if(req==='no')p*=1-st.p[t];}
+ const costume=$('#require-costume').value;
+ if(costume==='yes'&&!b.costume||costume==='no'&&b.costume)p=0;
+ return p*b.share;
+}
+function renderBreedingResults(st){
+ const el=$('#breeding-results'),facts=breedingCurrentFacts;
+ if(!el||!facts?.ok){if(el)el.innerHTML='';return;}
+ const open=new Map([...el.querySelectorAll('details')].map(d=>[d.dataset.baby,d.open]));
+ const required=['perfect','alpha'].filter(t=>$('#require-'+t).value==='yes');
+ el.innerHTML=`<section class="article-section baby-results"><div class="section-head"><h2>Possible baby Pokémon</h2><span class="pill">Level 5</span></div><p>The species and inherited costume are shown below. Rare looks still roll independently. Each preview is a possible result, not a promised hatch.</p>${facts.babies.map(b=>{
+  const p=mon(b.costume)||mon(b.slug);
+  const preview=D.odds.lookDefinitions.find(d=>d.id===$('#odds-target').value);
+  return `<article class="baby-outcome"><div class="baby-result-heading">${babySprite(b)}<div><span class="eyebrow">${num(b.share*100)}% species chance</span><h3>${esc(p.name)}</h3>${types(mon(b.slug).types)}<div class="related">${b.costume?'<span class="pill">Costume inherited</span>':''}<span class="pill">Hatches at Lv. 5</span></div></div></div><div class="baby-trait-chances">${['shiny','umbral','prismana','perfect','alpha'].map(t=>`<div><span>${nice(t)}</span><strong>${probability(st.p[t])}</strong></div>`).join('')}</div><details data-baby="${b.slug}" ${open.get(b.slug)!==false?'open':''}><summary>Sprite previews · all 8 looks</summary><p class="small-note">Exact Shiny / Umbral / Prismana combinations. The chances below are per egg from this pair, including this baby’s species chance and your Perfect, Alpha and Costume filters. Alpha and Perfect are marked with badges.</p><div class="baby-looks">${D.odds.lookDefinitions.map(d=>{
+   const chance=babyLookChance(b,d,st);
+   return `<div class="baby-look ${d.id===preview.id?'chosen-look':''} ${chance===0?'unavailable-look':''}">${babySprite(b,d.requires)}<h4>${esc(d.label)}</h4><div class="look-badges">${required.map(t=>`<span class="pill">${nice(t)}</span>`).join('')}${b.costume?'<span class="pill">Costume</span>':''}</div><div class="baby-look-chance">${probability(chance)}</div></div>`;
+  }).join('')}</div></details><div class="related">${monLink(b.costume||b.slug)}</div></article>`;
+ }).join('')}<p class="small-note">Trait percentages above are within each baby family. Sprite previews use the game’s regular, shiny and costume artwork; Umbral and Prismana are shown with their appearance effects.</p></section>`;
 }

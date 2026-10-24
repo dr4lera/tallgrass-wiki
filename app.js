@@ -178,7 +178,7 @@ function updateOdds(){
  }
  body+=`<details class="article-section"><summary>All 64 exact variations</summary><p>Every combination of Shiny, Umbral, Prismana, Perfect, Alpha and Costume. Each row requires its named traits and excludes every unlisted trait. This complete table uses the source, rank, Charm and parent setup above; it does not apply the individual combination filters. Impossible source combinations show 0%.</p>${table(['Exact traits','Chance per qualifying roll'],allPatterns)}</details>`;
  body+=section('How to read these odds','<p>These are chances per eligible encounter or egg. “1 in” values are rounded reciprocals, not a guaranteed number of attempts. Finding a look and successfully catching it are separate events. Source-specific rewards can have their own rules; use the matching guide.</p>');
- $('#odds-results').innerHTML=body;
+ $('#odds-results').innerHTML=body;if($('#breeding-results'))renderBreedingResults(st);
 }
 function route(){
  if(!D)return;if($('#search-dialog').open)$('#search-dialog').close();const [kind='',raw='']=location.hash.replace(/^#\/?/,'').split('/');const id=decodeURIComponent(raw);page=1;
@@ -201,4 +201,4 @@ function search(){
 }
 function openSearch(){$('#search-dialog').showModal();search();$('#search-input').focus();}
 $('#menu').onclick=()=>document.body.classList.toggle('menu-open');$('#shade').onclick=()=>document.body.classList.remove('menu-open');$('#theme').onclick=()=>{const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;$('#theme').setAttribute('aria-pressed',String(t==='dark'));try{localStorage.setItem('tg-wiki-theme',t);}catch{}};$('#search-open').onclick=openSearch;$('#search-close').onclick=()=>$('#search-dialog').close();$('#search-input').oninput=search;$('#search-input').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const a=$('#search-results a');if(a){a.click();$('#search-dialog').close();}}};document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openSearch();}});window.addEventListener('hashchange',route);
-fetch('data.json').then(r=>{if(!r.ok)throw Error('Could not load reference');return r.json();}).then(d=>{D=d;$('#theme').setAttribute('aria-pressed',String(document.documentElement.dataset.theme==='dark'));nav();indexSearch();route();}).catch(()=>{$('#content').innerHTML=empty('The reference could not load. Please refresh to try again.');});
+fetch('data.json?v=20261024-sprites').then(r=>{if(!r.ok)throw Error('Could not load reference');return r.json();}).then(d=>{D=d;$('#theme').setAttribute('aria-pressed',String(document.documentElement.dataset.theme==='dark'));nav();indexSearch();route();}).catch(()=>{$('#content').innerHTML=empty('The reference could not load. Please refresh to try again.');});
