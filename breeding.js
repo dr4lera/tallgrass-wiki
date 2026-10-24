@@ -1,5 +1,6 @@
 'use strict';
 let breedingCurrentFacts=null;
+function costumeInheritanceActive(){return Date.now()<Date.parse(D.breedingRules.costumeInheritance.endsAtUtc);}
 function breedingOptions(){
  const allowed=new Set(D.breedingRules.species.map(p=>p.slug));
  return D.species.filter(p=>allowed.has(p.slug));
@@ -30,10 +31,10 @@ function pairFacts(a,b){
  const same=ra.babySlug===rb.babySlug,shared=a.p.types.filter(t=>b.p.types.includes(t));
  if(!da&&!db&&!same&&!shared.length)return {ok:false,reason:'These parents share neither an evolution family nor a type, and neither is Ditto.'};
  const roots=da?[rb.babySlug]:db?[ra.babySlug]:same?[ra.babySlug]:[ra.babySlug,rb.babySlug];
- const halloween=new Set(['charmander-ghost','squirtle-shades','bulbasaur-pumpkin']);
- const eventActive=Date.now()<Date.parse('2026-11-01T00:00:00Z');
+ const halloween=new Set(D.breedingRules.costumes.filter(c=>c.halloween).map(c=>c.slug));
+ const eventActive=costumeInheritanceActive();
  const babies=roots.map(slug=>({slug,share:1/roots.length,costume:eventActive?[a,b].map(p=>mon(p.costume)).find(c=>c&&halloween.has(c.slug)&&c.base===slug)?.slug:null}));
- return {ok:true,encounters:same&&!da&&!db?50:100,babies,costume:babies.reduce((n,b)=>n+(b.costume?b.share:0),0),eventActive,reason:da||db?'Ditto follows the other parent’s family.':same?'Same-family pair.':`Shared type: ${shared.map(nice).join(' / ')}. Each parent family is equally likely.`};
+ return {ok:true,encounters:same&&!da&&!db?D.breedingRules.production.sameFamilyEncountersPerEgg:D.breedingRules.production.normalEncountersPerEgg,babies,costume:babies.reduce((n,b)=>n+(b.costume?b.share:0),0),eventActive,reason:da||db?'Ditto follows the other parent’s family.':same?'Same-family pair.':`Shared type: ${shared.map(nice).join(' / ')}. Each parent family is equally likely.`};
 }
 function syncBreeding(){
  const parents=[readBreedingParent(0),readBreedingParent(1)];
@@ -70,7 +71,7 @@ function setupBreeding(){
 function zeroExplanation(trait,st){
  if(st.p[trait]>0)return '';
  if(trait==='alpha')return st.source==='daycare'?'Neither parent is Alpha. Each Alpha parent adds a 1-in-64 chance.':'This source does not roll Alpha. Alpha bosses can join after victory; Alpha parents can produce Alpha babies.';
- if(trait==='costume')return st.source==='daycare'?(Date.now()>=Date.parse('2026-11-01T00:00:00Z')?'Halloween inheritance has ended for this build.':'No eligible matching Halloween costume in this setup. Non-Halloween costumes do not inherit here.'):'No costume is assigned by this source. Try a costume prize, Costume Egg, costume outbreak, guest, or eligible Halloween breeding.';
+ if(trait==='costume')return st.source==='daycare'?(!costumeInheritanceActive()?'Halloween inheritance has ended for this build.':'No eligible matching Halloween costume in this setup. Non-Halloween costumes do not inherit here.'):'No costume is assigned by this source. Try a costume prize, Costume Egg, costume outbreak, guest, or eligible Halloween breeding.';
  if(st.source==='founder')return 'The Founder reward fixes its traits; it does not use ordinary starter rolls.';
  if(trait==='perfect')return 'No dedicated Perfect bonus roll for this source. This does not estimate naturally perfect IV spreads.';
  return 'Not rolled by this source.';
@@ -97,9 +98,9 @@ function renderBreedingResults(st){
  el.innerHTML=`<section class="article-section baby-results"><div class="section-head"><h2>Possible baby Pokémon</h2><span class="pill">Level 5</span></div><p>The species and inherited costume are shown below. Rare looks still roll independently. Each preview is a possible result, not a promised hatch.</p>${facts.babies.map(b=>{
   const p=mon(b.costume)||mon(b.slug);
   const preview=D.odds.lookDefinitions.find(d=>d.id===$('#odds-target').value);
-  return `<article class="baby-outcome"><div class="baby-result-heading">${babySprite(b)}<div><span class="eyebrow">${num(b.share*100)}% species chance</span><h3>${esc(p.name)}</h3>${types(mon(b.slug).types)}<div class="related">${b.costume?'<span class="pill">Costume inherited</span>':''}<span class="pill">Hatches at Lv. 5</span></div></div></div><div class="baby-trait-chances">${['shiny','umbral','prismana','perfect','alpha'].map(t=>`<div><span>${nice(t)}</span><strong>${probability(st.p[t])}</strong></div>`).join('')}</div><details data-baby="${b.slug}" ${open.get(b.slug)!==false?'open':''}><summary>Sprite previews · all 8 looks</summary><p class="small-note">Exact Shiny / Umbral / Prismana combinations. The chances below are per egg from this pair, including this baby’s species chance and your Perfect, Alpha and Costume filters. Alpha and Perfect are marked with badges.</p><div class="baby-looks">${D.odds.lookDefinitions.map(d=>{
+  return `<article class="baby-outcome"><div class="baby-result-heading">${babySprite(b)}<div><span class="eyebrow">${num(b.share*100)}% species chance</span><h3>${esc(p.name)}</h3>${types(mon(b.slug).types)}<div class="related">${b.costume?'<span class="pill">Costume inherited</span>':''}<span class="pill">Hatches at Lv. 5</span></div></div></div><div class="baby-trait-chances">${['shiny','umbral','prismana','perfect','alpha'].map(t=>`<div><span>${nice(t)}</span><strong>${probability(st.p[t])}</strong></div>`).join('')}</div><details data-baby="${b.slug}" ${open.get(b.slug)!==false?'open':''}><summary>Sprite previews · all 8 looks</summary><p class="small-note">Exact Shiny / Void / Prismatic combinations. The chances below are per egg from this pair, including this baby’s species chance and your Perfect, Alpha and Costume filters. Alpha and Perfect are marked with badges.</p><div class="baby-looks">${D.odds.lookDefinitions.map(d=>{
    const chance=babyLookChance(b,d,st);
    return `<div class="baby-look ${d.id===preview.id?'chosen-look':''} ${chance===0?'unavailable-look':''}">${babySprite(b,d.requires)}<h4>${esc(d.label)}</h4><div class="look-badges">${required.map(t=>`<span class="pill">${nice(t)}</span>`).join('')}${b.costume?'<span class="pill">Costume</span>':''}</div><div class="baby-look-chance">${probability(chance)}</div></div>`;
   }).join('')}</div></details><div class="related">${monLink(b.costume||b.slug)}</div></article>`;
- }).join('')}<p class="small-note">Trait percentages above are within each baby family. Sprite previews use the game’s regular, shiny and costume artwork; Umbral and Prismana are shown with their appearance effects.</p></section>`;
+ }).join('')}<p class="small-note">Trait percentages above are within each baby family. Sprite previews use the game’s regular, shiny and costume artwork; Void and Prismatic are shown with their appearance effects.</p></section>`;
 }
