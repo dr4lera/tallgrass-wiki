@@ -90,6 +90,7 @@ function setupBreeding(){
  syncBreeding();
 }
 function zeroExplanation(trait,st){
+ if(trait==='gilded')return ['raid','tower'].includes(st.source)?'Public rollout or an eligible server roll is not active. Use the Gilded rollout selector when the game has enabled it.':'Public Gilded rolls are Raid Egg and Tower only; not Day Care, wild, starter or ordinary gift/costume rewards.';
  if(st.p[trait]>0)return '';
  if(trait==='spectral')return st.source==='founder'?'The Founder reward fixes its traits.':'New Spectral rolls need an active Spooky season and an eligible server-issued roll. Use the season selector to preview the active-season chance.';
  if(trait==='alpha')return st.source==='daycare'?'Neither parent is Alpha. Each Alpha parent adds a 1-in-64 chance.':'This source does not roll Alpha. Alpha bosses can join after victory; Alpha parents can produce Alpha babies.';
@@ -102,12 +103,13 @@ function babySprite(b,looks=[]){
  const p=mon(b.costume)||mon(b.slug),shiny=looks.includes('shiny');
  const src=shiny?(p.shinyImage||p.image):p.image;
  const rare=looks.includes('umbral')||looks.includes('prismana');
- return src?`<div class="baby-sprite ${shiny?'baby-shiny':''} ${looks.includes('umbral')?'baby-umbral':''} ${looks.includes('prismana')?'baby-prismana':''} ${looks.includes('spectral')?'baby-spectral':''}" style="--baby-mask:url('${src}')"><img src="${src}" alt="${esc([...looks.map(nice),p.name].join(' '))}" loading="lazy">${rare?'<span class="baby-facets" aria-hidden="true"></span><span class="baby-sheen" aria-hidden="true"></span>':''}${looks.includes('prismana')?Array.from({length:4},(_,i)=>`<span class="baby-shard" style="--shard:${i}" aria-hidden="true"></span>`).join(''):''}${shiny?Array.from({length:3},(_,i)=>`<span class="baby-sparkle" style="--spark:${i}" aria-hidden="true">✦</span>`).join(''):''}</div>`:'<div class="baby-sprite">◇</div>';
+ return src?`<div class="baby-sprite ${shiny?'baby-shiny':''} ${looks.includes('umbral')?'baby-umbral':''} ${looks.includes('prismana')?'baby-prismana':''} ${looks.includes('spectral')?'baby-spectral':''} ${looks.includes('gilded')?'baby-gilded':''}" style="--baby-mask:url('${src}')"><img src="${src}" alt="${esc([...looks.map(nice),p.name].join(' '))}" loading="lazy">${rare?'<span class="baby-facets" aria-hidden="true"></span><span class="baby-sheen" aria-hidden="true"></span>':''}${looks.includes('prismana')?Array.from({length:4},(_,i)=>`<span class="baby-shard" style="--shard:${i}" aria-hidden="true"></span>`).join(''):''}${shiny?Array.from({length:3},(_,i)=>`<span class="baby-sparkle" style="--spark:${i}" aria-hidden="true">✦</span>`).join(''):''}</div>`:'<div class="baby-sprite">◇</div>';
 }
 function spectralPreviewDefinitions(){
  return D.odds.lookDefinitions.flatMap(d=>[false,true].map(spectral=>({...d,id:d.id+(spectral?'_spectral':''),label:(d.id==='normal'?(spectral?'Spectral':'Normal'):d.label+(spectral?' + Spectral':'')),requires:[...d.requires,...spectral?['spectral']:[]],excludes:[...d.excludes,...spectral?[]:['spectral']]})));
 }
 function babyLookChance(b,def,st){
+ if($('#require-gilded')?.value==='yes')return 0;
  const spectral=$('#require-spectral').value;
  if(spectral==='yes'&&!def.requires.includes('spectral')||spectral==='no'&&def.requires.includes('spectral'))return 0;
  let p=def.requires.reduce((n,t)=>n*st.p[t],1);
@@ -129,5 +131,5 @@ function renderBreedingResults(st){
    const chance=babyLookChance(b,d,st);
    return `<div class="baby-look ${d.id===preview.id?'chosen-look':''} ${chance===0?'unavailable-look':''}">${babySprite(b,d.requires)}<h4>${esc(d.label)}</h4><div class="look-badges">${required.map(t=>`<span class="pill">${nice(t)}</span>`).join('')}${b.costume?'<span class="pill">Costume</span>':''}</div><div class="baby-look-chance">${probability(chance)}</div></div>`;
   }).join('')}</div></details><div class="related">${monLink(b.costume||b.slug)}</div></article>`;
- }).join('')}<p class="small-note">Trait percentages above are within each baby family. Sprite previews use the game’s regular, shiny and costume artwork; Void, Prismatic and Spectral use illustrative appearance effects. Spectral does not change combat stats.</p></section>`;
+ }).join('')}<p class="small-note">Trait percentages above are within each baby family. Sprite previews use the game’s regular, shiny and costume artwork; Void, Prismatic and Spectral use illustrative appearance effects. Spectral has a 10% Ghostly dodge outside Raids. Gilded is not inherited in Day Care; selecting Required makes these egg previews impossible.</p></section>`;
 }
