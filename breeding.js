@@ -108,7 +108,7 @@ function babySprite(b,looks=[]){
  const src=shiny?(p.shinyImage||p.image):p.image;
  const rare=looks.includes('umbral')||looks.includes('prismana');
  const gold=looks.includes('gilded')&&typeof GILDED_SPRITES!=='undefined'?GILDED_SPRITES.positions[p.slug]:null;
- const goldOnly=gold&&!rare&&!looks.includes('spectral');
+ const goldOnly=gold;
  const sprite=goldOnly?`<span class="gilded-frame" role="img" aria-label="${esc([...looks.map(nice),p.name].join(' '))}" style="display:block;width:100%;height:100%;background-image:url('gilded-atlas.png?v=20261105');background-repeat:no-repeat;background-size:${GILDED_SPRITES.cols*100}% ${GILDED_SPRITES.rows*100}%;background-position:${gold[0]/(GILDED_SPRITES.cols-1)*100}% ${gold[1]/(GILDED_SPRITES.rows-1)*100}%;image-rendering:pixelated"></span>`:`<img src="${src}" alt="${esc([...looks.map(nice),p.name].join(' '))}" loading="lazy">`;
 
  return src?`<div class="baby-sprite ${shiny?'baby-shiny':''} ${looks.includes('umbral')?'baby-umbral':''} ${looks.includes('prismana')?'baby-prismana':''} ${looks.includes('spectral')?'baby-spectral':''} ${looks.includes('gilded')?'baby-gilded':''}" style="--baby-mask:url('${src}')">${sprite}${rare?'<span class="baby-facets" aria-hidden="true"></span><span class="baby-sheen" aria-hidden="true"></span>':''}${looks.includes('prismana')?Array.from({length:4},(_,i)=>`<span class="baby-shard" style="--shard:${i}" aria-hidden="true"></span>`).join(''):''}${shiny?Array.from({length:3},(_,i)=>`<span class="baby-sparkle" style="--spark:${i}" aria-hidden="true">✦</span>`).join(''):''}</div>`:'<div class="baby-sprite">◇</div>';
@@ -116,13 +116,19 @@ function babySprite(b,looks=[]){
 function spectralPreviewDefinitions(){
  return D.odds.lookDefinitions.flatMap(d=>[false,true].map(spectral=>({...d,id:d.id+(spectral?'_spectral':''),label:(d.id==='normal'?(spectral?'Spectral':'Normal'):d.label+(spectral?' + Spectral':'')),requires:[...d.requires,...spectral?['spectral']:[]],excludes:[...d.excludes,...spectral?[]:['spectral']]})));
 }
+function breedingPreviewDefinitions(){
+ return spectralPreviewDefinitions().flatMap(d=>[false,true].map(gilded=>({...d,id:d.id+(gilded?'_gilded':''),label:gilded?(d.label==='Normal'?'Gilded':d.label+' + Gilded'):d.label,requires:[...d.requires,...gilded?['gilded']:[]],excludes:[...d.excludes,...gilded?[]:['gilded']]})));
+}
 function babyLookChance(b,def,st){
 
- const spectral=$('#require-spectral').value;
- if(spectral==='yes'&&!def.requires.includes('spectral')||spectral==='no'&&def.requires.includes('spectral'))return 0;
+ for(const trait of ['spectral','gilded']){
+  if(!def.requires.includes(trait)&&!def.excludes.includes(trait))continue;
+  const req=$('#require-'+trait).value;
+  if(req==='yes'&&!def.requires.includes(trait)||req==='no'&&def.requires.includes(trait))return 0;
+ }
  let p=def.requires.reduce((n,t)=>n*st.p[t],1);
  def.excludes.forEach(t=>p*=1-st.p[t]);
- for(const t of ['perfect','alpha','gilded']){const req=$('#require-'+t).value;if(req==='yes')p*=st.p[t];if(req==='no')p*=1-st.p[t];}
+ for(const t of ['perfect','alpha','gilded'].filter(t=>!def.requires.includes(t)&&!def.excludes.includes(t))){const req=$('#require-'+t).value;if(req==='yes')p*=st.p[t];if(req==='no')p*=1-st.p[t];}
  const costume=$('#require-costume').value;
  if(costume==='yes'&&!b.costume||costume==='no'&&b.costume)p=0;
  return p*b.share;
@@ -131,13 +137,13 @@ function renderBreedingResults(st){
  const el=$('#breeding-results'),facts=breedingCurrentFacts;
  if(!el||!facts?.ok){if(el)el.innerHTML='';return;}
  const open=new Map([...el.querySelectorAll('details')].map(d=>[d.dataset.baby,d.open]));
- const required=['perfect','alpha','gilded'].filter(t=>$('#require-'+t).value==='yes');
+ const required=['perfect','alpha'].filter(t=>$('#require-'+t).value==='yes');
  el.innerHTML=`<section class="article-section baby-results"><div class="section-head"><h2>Possible baby Pokémon</h2><span class="pill">Level 5</span></div><p>The species and inherited costume are shown below. Rare looks still roll independently. Each preview is a possible result, not a promised hatch.</p>${facts.babies.map(b=>{
   const p=mon(b.costume)||mon(b.slug);
   const preview=D.odds.lookDefinitions.find(d=>d.id===$('#odds-target').value);
-  return `<article class="baby-outcome"><div class="baby-result-heading">${babySprite(b)}<div><span class="eyebrow">${num(b.share*100)}% species chance</span><h3>${esc(p.name)}</h3>${types(mon(b.slug).types)}<div class="related">${b.costume?'<span class="pill">Costume inherited</span>':''}<span class="pill">Hatches at Lv. 5</span></div></div></div><div class="baby-trait-chances">${['shiny','umbral','prismana','perfect','alpha','spectral','gilded'].map(t=>`<div><span>${nice(t)}</span><strong>${probability(st.p[t])}</strong></div>`).join('')}</div><details data-baby="${b.slug}" ${open.get(b.slug)!==false?'open':''}><summary>Sprite previews · all 16 looks</summary><p class="small-note">Exact Shiny / Void / Prismatic / Spectral combinations. The chances below are per egg from this pair, including this baby’s species chance and your Perfect, Alpha, Gilded and Costume filters. Required bonus traits are marked with badges.</p><div class="baby-looks">${spectralPreviewDefinitions().map(d=>{
+  return `<article class="baby-outcome"><div class="baby-result-heading">${babySprite(b)}<div><span class="eyebrow">${num(b.share*100)}% species chance</span><h3>${esc(p.name)}</h3>${types(mon(b.slug).types)}<div class="related">${b.costume?'<span class="pill">Costume inherited</span>':''}<span class="pill">Hatches at Lv. 5</span></div></div></div><div class="baby-trait-chances">${['shiny','umbral','prismana','perfect','alpha','spectral','gilded'].map(t=>`<div><span>${nice(t)}</span><strong>${probability(st.p[t])}</strong></div>`).join('')}</div><details data-baby="${b.slug}" ${open.get(b.slug)!==false?'open':''}><summary>Sprite previews · all 32 looks</summary><p class="small-note">Every exact Shiny / Void / Prismatic / Spectral / Gilded combination. The chances below are per egg from this pair, including this baby’s species chance and your Perfect, Alpha, Gilded and Costume filters. Required bonus traits are marked with badges.</p><div class="baby-looks">${breedingPreviewDefinitions().map(d=>{
    const chance=babyLookChance(b,d,st);
-   return `<div class="baby-look ${d.id===preview.id?'chosen-look':''} ${chance===0?'unavailable-look':''}">${babySprite(b,[...d.requires,...required])}<h4>${esc(d.label)}</h4><div class="look-badges">${required.map(t=>`<span class="pill">${nice(t)}</span>`).join('')}${b.costume?'<span class="pill">Costume</span>':''}</div><div class="baby-look-chance">${probability(chance)}</div></div>`;
+   return `<div class="baby-look ${d.id===preview.id?'chosen-look':''} ${chance===0?'unavailable-look':''}">${babySprite(b,[...d.requires,...required])}<h4>${esc(d.label)}</h4><div class="look-badges">${[...required,...d.requires.includes('gilded')?['gilded']:[]].map(t=>`<span class="pill">${nice(t)}</span>`).join('')}${b.costume?'<span class="pill">Costume</span>':''}</div><div class="baby-look-chance">${probability(chance)}${chance===0&&d.requires.includes('gilded')&&st.p.gilded===0?`<p>${esc(zeroExplanation('gilded',st))}</p>`:''}</div></div>`;
   }).join('')}</div></details><div class="related">${monLink(b.costume||b.slug)}</div></article>`;
- }).join('')}<p class="small-note">Trait percentages above are within each baby family. Sprite previews use the game’s regular, shiny and costume artwork; Void, Prismatic and Spectral use illustrative appearance effects. Spectral has a 10% Ghostly dodge outside Raids. Gilded inheritance requires a Gilded parent in this pen and an eligible server roll. Public eligibility is assumed by default; choose Not active / ineligible to model an excluded roll. Each Gilded parent adds 1/2048 to the Gilded probability; different islands double only its egg base. Prismatic parents do not replace Gilded parents, and Destiny Knot only changes Perfect odds. Gilded filters affect the preview probabilities; the 16 existing preview tiles keep their original four-look layout. Use the 256-pattern table for all Gilded combinations.</p></section>`;
+ }).join('')}<p class="small-note">Trait percentages above are within each baby family. Sprite previews use the game’s regular, shiny and costume artwork; Void, Prismatic and Spectral use illustrative appearance effects. Spectral has a 10% Ghostly dodge outside Raids. Gilded inheritance requires a Gilded parent in this pen and an eligible server roll. Public eligibility is assumed by default; choose Not active / ineligible to model an excluded roll. Each Gilded parent adds 1/2048 to the Gilded probability; different islands double only its egg base. Prismatic parents do not replace Gilded parents, and Destiny Knot only changes Perfect odds. All 32 look previews include Gilded combinations, including Gilded + Prismatic. Two Gilded parents add two parent bonuses; Gilded is a single trait on the baby, not a second stacked copy. The 256-pattern table also includes Perfect, Alpha and Costume.</p></section>`;
 }
