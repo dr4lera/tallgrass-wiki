@@ -1,0 +1,62 @@
+{
+  "version": "0.72.2",
+  "bundle": "assets/index-_RpJVqPm.js",
+  "sha256": "19e7a42d24ec2d9c3f0d931616c204354f36e044b97f1d43201b9af7486f0243",
+  "source": {
+    "title": "Official Tallgrass 0.72.2 release and packaged Prism Altar rules",
+    "url": "https://github.com/SoulStackStudio/tallgrass/releases/tag/v0.72.2"
+  },
+  "functions": [
+    "Co (defaults)",
+    "TD (eligibility)",
+    "fc (Dust)",
+    "oMe (chances)",
+    "aZ (cost)",
+    "oZ (catalysts)",
+    "cMe (Infuse)",
+    "lMe (feed)"
+  ],
+  "limitations": [
+    "Static inspection; online server configuration and endpoints were not queried.",
+    "REA whole-bundle semantic analysis timed out; formulas and UI checks were inspected directly in bounded source excerpts.",
+    "Reference catalogs retain 0.69.0 coverage; updated feature guides disclose this."
+  ],
+  "defaults": {
+    "chance": {
+      "s": 0.15,
+      "v": 0.06,
+      "p": 0.03
+    },
+    "step_mul": [
+      1.5,
+      1,
+      0.5
+    ],
+    "cost": [
+      10,
+      25,
+      90
+    ],
+    "look_mul": {
+      "s": 1,
+      "v": 1.5,
+      "p": 2.5
+    },
+    "dust": {
+      "s": 1,
+      "v": 3,
+      "p": 8,
+      "alpha": 1,
+      "perfect": 1,
+      "forged": 0.5
+    },
+    "daily_cap": 1000,
+    "queue_days": 7,
+    "catalyst": 0.2,
+    "catalyst_max": 3,
+    "cap": 0.9,
+    "residue": 0.1,
+    "rolls_max": 3,
+    "feed_max": 400
+  }
+}
